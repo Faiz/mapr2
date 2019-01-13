@@ -17,9 +17,6 @@ class Agent:
         self.Q = defaultdict(
             partial(np.random.rand, *(self.action_num, action_num))
         )
-        self.Q_target = defaultdict(
-            partial(np.random.rand, *(self.action_num, action_num))
-        )
         self.pi_neg_i = defaultdict(
             partial(np.random.dirichlet, [1.0] * self.action_num)
         )
@@ -37,7 +34,7 @@ class Agent:
             if exp[0] != s: # state
                 continue
             denominator += 1
-            a_neg_i_map[a_neg_i] += 1
+            a_neg_i_map[exp[2]] += 1
         self.pi_neg_i[s] = np.array(
             [a_neg_i_map[i] / denominator for i in range(self.action_num)])
 
@@ -54,7 +51,7 @@ class Agent:
                 sampled_a_i, sampled_a_neg_i = self.act(s)
                 numerator += (
                     self.pi_neg_i[s_prime][sampled_a_neg_i] *
-                    np.exp(self.Q_target[s_prime][sampled_a_i, sampled_a_neg_i])
+                    np.exp(self.Q[s_prime][sampled_a_i, sampled_a_neg_i])
                 )
                 denominator += (
                     np.exp(self.Q[s][sampled_a_i, sampled_a_neg_i]) *
@@ -67,14 +64,22 @@ class Agent:
             v_s_prime = (1 / k) * (numerator / denominator)
             y = r + gamma * v_s_prime
             
-            print((y - self.Q[s][a_i, a_neg_i]) ** 2)
-
             self.Q[s][a_i, a_neg_i] = (
                 (1 - decay_alpha) * self.Q[s][a_i, a_neg_i] +
                 decay_alpha * y
             )
+            # self.Q[s] = self.Q[s] / self.Q[s].sum()
         self.epoch += 1
-
+        self.pi_history.append(self.calculate_pi(s))
+        
+    def calculate_pi(self, s):
+        rho = np.multiply(
+            self.pi_neg_i[s],
+            np.exp(np.sum(self.Q[s], 1))
+        )
+        pi = np.exp(self.Q[s])
+        p = np.sum(np.multiply(pi, rho), 1)
+        return p / p.sum()
 
     def act(self, s):
         """

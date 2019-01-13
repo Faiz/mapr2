@@ -45,6 +45,29 @@ if __name__ == "__main__":
             )
             # Update Q
             agent.update_policy(sample_size=SAMPLE_SIZE, k=K)
-    print(reward_history)
-    
-    
+
+    history_pi_0 = [p[0] for p in agents[0].pi_history]
+    history_pi_1 = [p[0] for p in agents[1].pi_history]
+
+    cmap = plt.get_cmap('viridis')
+    colors = range(len(history_pi_1))
+    fig = plt.figure(figsize=(6, 10))
+    ax = fig.add_subplot(211)
+
+
+    scatter = ax.scatter(history_pi_0, history_pi_1, c=colors, s=1)
+    ax.scatter(0.5, 0.5, c='r', s=10., marker='*')
+    colorbar = fig.colorbar(scatter, ax=ax)
+
+    ax.set_ylabel("Policy of Player 2")
+    ax.set_xlabel("Policy of Player 1")
+    ax.set_ylim(0, 1)
+    ax.set_xlim(0, 1)
+
+    # ax = fig.add_subplot(212)
+
+    # ax.plot(history_pi_0)
+    # ax.plot(history_pi_1)
+
+    plt.tight_layout()
+    plt.show()
