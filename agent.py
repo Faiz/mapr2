@@ -57,7 +57,7 @@ class Agent:
                     np.exp(self.Q[s][sampled_a_i, sampled_a_neg_i]) *
                     np.multiply(
                         self.pi_neg_i[s],
-                        np.exp(np.sum(self.Q[s], 1))
+                        np.exp(np.sum(self.Q[s], 0))
                     )[sampled_a_neg_i]
                 )
             
@@ -68,14 +68,14 @@ class Agent:
                 (1 - decay_alpha) * self.Q[s][a_i, a_neg_i] +
                 decay_alpha * y
             )
-            # self.Q[s] = self.Q[s] / self.Q[s].sum()
+            self.Q[s] = self.Q[s] / self.Q[s].sum()
         self.epoch += 1
         self.pi_history.append(self.calculate_pi(s))
         
     def calculate_pi(self, s):
         rho = np.multiply(
             self.pi_neg_i[s],
-            np.exp(np.sum(self.Q[s], 1))
+            np.exp(np.sum(self.Q[s], 0))
         )
         pi = np.exp(self.Q[s])
         p = np.sum(np.multiply(pi, rho), 1)
@@ -93,7 +93,7 @@ class Agent:
         """
         opponent_p = np.multiply(
             self.pi_neg_i[s],
-            np.exp(np.sum(self.Q[s], 1)) # is the axis right?
+            np.exp(np.sum(self.Q[s], 0)) # is the axis right?
         )
         opponent_action = np.random.choice(
             opponent_p.size, size=1, p=opponent_p/opponent_p.sum())[0]
