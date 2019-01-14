@@ -23,6 +23,15 @@ class Agent:
         # (state, agent_action, opp_action, state_prime, reward)
         self.replay_buffer = []
         self.pi_history = []
+        self.cond_pi = defaultdict(
+            partial(np.random.rand, *(self.action_num, action_num))
+        )
+        self.rho = defaultdict(
+            partial(np.random.dirichlet, [1.0] * self.action_num)
+        )
+        self.marginal_pi = defaultdict(
+            partial(np.random.dirichlet, [1.0] * self.action_num)
+        )
 
     def update_opponent_action_prob(self, s, a_i, a_neg_i, s_prime, r):
         self.replay_buffer.append((s, a_i, a_neg_i, s_prime, r))
@@ -41,6 +50,25 @@ class Agent:
     def step_decay(self):
         return self.alpha_decay_steps / (self.alpha_decay_steps + self.epoch)
 
+    def compute_conditional_pi(self, s):
+        self.cond_pi[s] = np.exp(self.Q[s])
+        self.cond_pi[s] /= self.cond_pi[s].sum()
+        return self.cond_pi[s]
+
+    def compute_opponent_model(self, s):
+        self.rho[s] = np.multiply(
+            self.pi_neg_i[s],
+            np.exp(np.sum(self.Q[s], 0))
+        )
+        self.rho[s] /= self.rho[s].sum()
+        return self.rho[s]
+
+    def compute_marginal_pi(self, s):
+        pi = self.compute_conditional_pi(s)
+        rho = self.compute_opponent_model(s)
+        self.marginal_pi[s] = np.sum(np.multiply(pi, rho), 1)
+        return self.marginal_pi[s]
+
     def update_policy(self, sample_size, k, gamma=0.95):
         samples = np.random.choice(len(self.replay_buffer), size=sample_size)
         decay_alpha = self.step_decay()
@@ -53,34 +81,19 @@ class Agent:
                     self.pi_neg_i[s_prime][sampled_a_neg_i] *
                     np.exp(self.Q[s_prime][sampled_a_i, sampled_a_neg_i])
                 )
-                denominator += (
-                    np.exp(self.Q[s][sampled_a_i, sampled_a_neg_i]) *
-                    np.multiply(
-                        self.pi_neg_i[s],
-                        np.exp(np.sum(self.Q[s], 0))
-                    )[sampled_a_neg_i]
-                )
+                pi = self.compute_conditional_pi(s_prime)[sampled_a_i, sampled_a_neg_i]
+                rho = self.compute_opponent_model(s_prime)[sampled_a_neg_i]
+                denominator += (pi * rho)
             
-            v_s_prime = (1 / k) * (numerator / denominator)
+            v_s_prime =  np.log((1 / k) * (numerator / denominator))
             y = r + gamma * v_s_prime
-            
             self.Q[s][a_i, a_neg_i] = (
                 (1 - decay_alpha) * self.Q[s][a_i, a_neg_i] +
                 decay_alpha * y
             )
-            self.Q[s] = self.Q[s] / self.Q[s].sum()
         self.epoch += 1
-        self.pi_history.append(self.calculate_pi(s))
+        self.pi_history.append(self.compute_marginal_pi(s))
         
-    def calculate_pi(self, s):
-        rho = np.multiply(
-            self.pi_neg_i[s],
-            np.exp(np.sum(self.Q[s], 0))
-        )
-        pi = np.exp(self.Q[s])
-        p = np.sum(np.multiply(pi, rho), 1)
-        return p / p.sum()
-
     def act(self, s):
         """
         Function act sample actions from pi for a given state.
@@ -91,12 +104,10 @@ class Agent:
                  Sampled action for the opponent according to our
                  belief.
         """
-        opponent_p = np.multiply(
-            self.pi_neg_i[s],
-            np.exp(np.sum(self.Q[s], 0)) # is the axis right?
-        )
+        opponent_p = self.compute_opponent_model(s)
+        print(opponent_p)
         opponent_action = np.random.choice(
-            opponent_p.size, size=1, p=opponent_p/opponent_p.sum())[0]
+            opponent_p.size, size=1, p=opponent_p)[0]
         agent_p = np.exp(self.Q[s][:,opponent_action])
         agent_action = np.random.choice(
             agent_p.size, size=1, p=agent_p/agent_p.sum())[0]

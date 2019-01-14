@@ -8,7 +8,7 @@ ACTION_NUM = 2
 GAME_NAME = "wolf_05_05"
 ITERATION = 1000
 SAMPLE_SIZE = 1
-K = 1
+K = 10
 
 
 if __name__ == "__main__":
@@ -45,9 +45,8 @@ if __name__ == "__main__":
             )
             # Update Q
             agent.update_policy(sample_size=SAMPLE_SIZE, k=K)
-
-    history_pi_0 = [p[0] for p in agents[0].pi_history]
-    history_pi_1 = [p[0] for p in agents[1].pi_history]
+    history_pi_0 = [p[1] for p in agents[0].pi_history]
+    history_pi_1 = [p[1] for p in agents[1].pi_history]
 
     cmap = plt.get_cmap('viridis')
     colors = range(len(history_pi_1))
