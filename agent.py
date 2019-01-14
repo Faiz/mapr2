@@ -53,7 +53,6 @@ class Agent:
     def compute_conditional_pi(self, s):
         self.cond_pi[s] = np.exp(self.Q[s])
         self.cond_pi[s] /= np.sum(np.exp(self.Q[s]), axis=0)
-        # self.cond_pi[s] /= self.cond_pi[s].sum()
         return self.cond_pi[s]
 
     def compute_opponent_model(self, s):
@@ -70,11 +69,13 @@ class Agent:
         self.marginal_pi[s] = np.sum(np.multiply(pi, rho), 1)
         return self.marginal_pi[s]
 
-    def update_policy(self, sample_size, k, gamma=0.95):
-        samples = np.random.choice(len(self.replay_buffer), size=sample_size)
+    def update_policy(self, sample_size, k, sliding_wnd_size=10, gamma=0.95):
+        sliding_wnd_size = min(sliding_wnd_size, len(self.replay_buffer))
+        sliding_window = self.replay_buffer[-sliding_wnd_size:]
+        samples = np.random.choice(len(sliding_window), size=sample_size)
         decay_alpha = self.step_decay()
         for exp in samples:
-            s, a_i, a_neg_i, s_prime, r = self.replay_buffer[exp]
+            s, a_i, a_neg_i, s_prime, r = sliding_window[exp]
             numerator, denominator = 0, 0
             for _ in range(k):
                 sampled_a_i, sampled_a_neg_i = self.act(s)
