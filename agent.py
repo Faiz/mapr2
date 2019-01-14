@@ -52,13 +52,14 @@ class Agent:
 
     def compute_conditional_pi(self, s):
         self.cond_pi[s] = np.exp(self.Q[s])
-        self.cond_pi[s] /= self.cond_pi[s].sum()
+        self.cond_pi[s] /= np.sum(np.exp(self.Q[s]), axis=0)
+        # self.cond_pi[s] /= self.cond_pi[s].sum()
         return self.cond_pi[s]
 
     def compute_opponent_model(self, s):
         self.rho[s] = np.multiply(
             self.pi_neg_i[s],
-            np.exp(np.sum(self.Q[s], 0))
+            np.sum(np.exp(self.Q[s]), axis=0)
         )
         self.rho[s] /= self.rho[s].sum()
         return self.rho[s]
@@ -105,10 +106,11 @@ class Agent:
                  belief.
         """
         opponent_p = self.compute_opponent_model(s)
-        print(opponent_p)
+        # print(opponent_p)
         opponent_action = np.random.choice(
             opponent_p.size, size=1, p=opponent_p)[0]
-        agent_p = np.exp(self.Q[s][:,opponent_action])
+        agent_p = np.exp(self.Q[s][:, opponent_action])
+
         agent_action = np.random.choice(
             agent_p.size, size=1, p=agent_p/agent_p.sum())[0]
         return agent_action, opponent_action
