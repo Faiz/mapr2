@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 AGENT_NUM = 2
 ACTION_NUM = 2
 GAME_NAME = "wolf_05_05"
-ITERATION = 1000
-SAMPLE_SIZE = 3
+ITERATION = 5000
+SAMPLE_SIZE = 1
 K = 10
 
 
@@ -28,22 +28,24 @@ if __name__ == "__main__":
         # reset resets the game and returns [0, 0]
         # since in matrix game, you don't really have a 
         # state or think of it as start state.
-        states = env.reset()
-        actions = np.array([
-            agent.act(state)[0] for state, agent in zip(states, agents)
-        ])
-        state_primes, rewards, _, _ = env.step(actions)
-        reward_history.append(rewards)
-        for agent_index, (state, reward, state_prime, agent) in enumerate(
-            zip(states, rewards, state_primes, agents)):
-            agent.update_opponent_action_prob(
-                state,
-                actions[agent_index],
-                actions[1 - agent_index],
-                state_prime,
-                reward,
-            )
-            # Update Q
+        for _ in range(SAMPLE_SIZE):
+            states = env.reset()
+            actions = np.array([
+                agent.act(state)[0] for state, agent in zip(states, agents)
+            ])
+            state_primes, rewards, _, _ = env.step(actions)
+            reward_history.append(rewards)
+            for agent_index, (state, reward, state_prime, agent) in enumerate(
+                zip(states, rewards, state_primes, agents)):
+                agent.update_opponent_action_prob(
+                    state,
+                    actions[agent_index],
+                    actions[1 - agent_index],
+                    state_prime,
+                    reward,
+                )
+        # Update Q
+        for agent in agents:
             agent.update_policy(sample_size=SAMPLE_SIZE, k=K)
     history_pi_0 = [p[1] for p in agents[0].pi_history]
     history_pi_1 = [p[1] for p in agents[1].pi_history]

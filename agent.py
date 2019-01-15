@@ -6,7 +6,7 @@ from typing import List
 class Agent:
     def __init__(self, id, action_num, env):
         self.id = id
-        self.alpha_decay_steps = 10000.
+        self.alpha_decay_steps = 1000.
         self.epoch = 0
         self.action_num = action_num
         self.env = env
@@ -69,7 +69,7 @@ class Agent:
         self.marginal_pi[s] = np.sum(np.multiply(pi, rho), 1)
         return self.marginal_pi[s]
 
-    def update_policy(self, sample_size, k, sliding_wnd_size=10, gamma=0.95):
+    def update_policy(self, sample_size, k, sliding_wnd_size=1000, gamma=0.95, done=True):
         sliding_wnd_size = min(sliding_wnd_size, len(self.replay_buffer))
         sliding_window = self.replay_buffer[-sliding_wnd_size:]
         samples = np.random.choice(len(sliding_window), size=sample_size)
@@ -77,18 +77,22 @@ class Agent:
         for exp in samples:
             s, a_i, a_neg_i, s_prime, r = sliding_window[exp]
             numerator, denominator = 0, 0
-            for _ in range(k):
-                sampled_a_i, sampled_a_neg_i = self.act(s)
-                numerator += (
-                    self.pi_neg_i[s_prime][sampled_a_neg_i] *
-                    np.exp(self.Q[s_prime][sampled_a_i, sampled_a_neg_i])
-                )
-                pi = self.compute_conditional_pi(s_prime)[sampled_a_i, sampled_a_neg_i]
-                rho = self.compute_opponent_model(s_prime)[sampled_a_neg_i]
-                denominator += (pi * rho)
-            
-            v_s_prime =  np.log((1 / k) * (numerator / denominator))
-            y = r + gamma * v_s_prime
+            if not done:
+                for _ in range(k):
+                    sampled_a_i, sampled_a_neg_i = self.act(s)
+                    numerator += (
+                        self.pi_neg_i[s_prime][sampled_a_neg_i] *
+                        np.exp(self.Q[s_prime][sampled_a_i, sampled_a_neg_i])
+                    )
+                    pi = self.compute_conditional_pi(s_prime)[sampled_a_i, sampled_a_neg_i]
+                    rho = self.compute_opponent_model(s_prime)[sampled_a_neg_i]
+                    denominator += (pi * rho)
+
+                v_s_prime = np.log((1 / k) * (numerator / denominator))
+
+                y = r + gamma * v_s_prime * (1-done)
+            else:
+                y = r
             self.Q[s][a_i, a_neg_i] = (
                 (1 - decay_alpha) * self.Q[s][a_i, a_neg_i] +
                 decay_alpha * y
@@ -110,7 +114,8 @@ class Agent:
         # print(opponent_p)
         opponent_action = np.random.choice(
             opponent_p.size, size=1, p=opponent_p)[0]
-        agent_p = np.exp(self.Q[s][:, opponent_action])
+        # agent_p = np.exp(self.Q[s][:, opponent_action])
+        agent_p = self.compute_marginal_pi(s)
 
         agent_action = np.random.choice(
             agent_p.size, size=1, p=agent_p/agent_p.sum())[0]
