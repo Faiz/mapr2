@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 AGENT_NUM = 2
 ACTION_NUM = 2
 GAME_NAME = "wolf_05_05"
-ITERATION = 5000
+ITERATION = 1000
 SAMPLE_SIZE = 1
 K = 10
 

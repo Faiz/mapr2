@@ -6,7 +6,7 @@ from typing import List
 class Agent:
     def __init__(self, id, action_num, env):
         self.id = id
-        self.alpha_decay_steps = 1000.
+        self.alpha_decay_steps = 10000.
         self.epoch = 0
         self.action_num = action_num
         self.env = env
@@ -69,7 +69,7 @@ class Agent:
         self.marginal_pi[s] = np.sum(np.multiply(pi, rho), 1)
         return self.marginal_pi[s]
 
-    def update_policy(self, sample_size, k, sliding_wnd_size=1000, gamma=0.95, done=True):
+    def update_policy(self, sample_size, k, sliding_wnd_size=1, gamma=0.95, done=True):
         sliding_wnd_size = min(sliding_wnd_size, len(self.replay_buffer))
         sliding_window = self.replay_buffer[-sliding_wnd_size:]
         samples = np.random.choice(len(sliding_window), size=sample_size)
