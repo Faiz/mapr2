@@ -30,6 +30,8 @@ class PGAgent:
         self.opponent_model = opp_model
         self.buffer = []
         self.P_s = defaultdict(partial(list, [0, 0]))
+        self.alpha = alpha
+        self.beta = beta
 
     def _tfarray(self, arr):
         return tf.convert_to_tensor(arr)
@@ -110,7 +112,7 @@ class PGAgent:
 
         loss_1 = tf.divide(tf.while_loop(cond1, body1, [ptr]), batch_len)
         theta_variables = self.policy.get_trainable()
-        gradients = tf.gradient(loss_1, theta_variables)
+        gradients = tf.gradients(loss_1, theta_variables)
 
         theta_variables -= self.alpha * gradients
 
@@ -128,11 +130,11 @@ class PGAgent:
             conditional = tf.distributions.Normal(*self.get_policy_params(s, a_opp))
             first_1 = tf.divide(
                 opponent.prob(a_opp),
-                conditional.prob(a_opp)
+                tf.distributions.Normal(*self.P_s[s]).prob(a_opp)
             )
             first_1 = tf.multiply(first_1, opponent.prob(a_opp))
             first_2 = tf.add(
-                r, H # Zheng
+                r, tf.mult(-conditional.prob(a), tf.log(conditional.prob(a)))
             )
             first = tf.multiply(first_1, first_2)
             second = tf.distributions.kl_divergence(
@@ -145,7 +147,7 @@ class PGAgent:
 
         loss_2 = tf.divide(tf.while_loop(cond1, body1, [ptr]), batch_len)
         theta_variables = self.opponent_model.get_trainable()
-        gradients = tf.gradient(loss_2, theta_variables)
+        gradients = tf.gradients(loss_2, theta_variables)
 
         theta_variables -= self.beta * gradients
 
