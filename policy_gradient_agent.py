@@ -49,14 +49,22 @@ class PGAgent:
         )
 
     def compute_marginal_policy(self, state):
+        # print(state)
         opp_model_mu, opp_model_sigma = self.get_opponent_model_params(state)
-        sampled_opp_action = np.random.normal() * opp_model_sigma.numpy() + opp_model_mu.numpy()
+        sampled_opp_action = np.random.normal() * opp_model_sigma + opp_model_mu
         policy_mu, policy_sigma = self.get_policy_params(state, sampled_opp_action)
         # calculate the distribution of product of two dist.
-        mu1, mu2, sig1, sig2 = opp_model_mu.numpy(), policy_mu.numpy(), opp_model_sigma.numpy(), policy_sigma.numpy()
-        mu = (mu1 * (sig2 ** 2) + mu2 * (sig1 ** 2)) / (sig2 ** 2 + sig1 ** 2)
-        sigma = (sig1 ** 2 * sig2 ** 2) / (sig1 ** 2 + sig2 ** 2)
+        mu1, mu2, sig1, sig2 = opp_model_mu, policy_mu, opp_model_sigma, policy_sigma
+        num1 = tf.multiply(mu1, tf.pow(sig2, 2))
+        num2 = tf.multiply(mu2, tf.pow(sig1, 2))
+        num = tf.add(num1, num2)
+        denom = tf.add(tf.pow(sig2, 2), tf.pow(sig1, 2))
+        mu = tf.divide(num, denom)
+        num = tf.multiply(tf.pow(sig1, 2), tf.pow(sig2, 2))
+        denom = tf.add(tf.pow(sig1, 2), tf.pow(sig2, 2))
+        sigma = tf.divide(num, denom)
         return mu, sigma
+
 
     def act(self, state):
         mu, sigma = self.compute_marginal_policy(state)
@@ -69,7 +77,7 @@ class PGAgent:
         self.buffer.append([])
 
     def update_P(self, window_length):
-        window_length = max(len(self.buffer), window_length)
+        window_length = min(len(self.buffer), window_length)
         m = defaultdict(list)
         for mini_batch in self.buffer[-window_length:]:
             for s, _, a_opp, _, _ in mini_batch:
@@ -80,16 +88,16 @@ class PGAgent:
     def update_params(self):
         batch = self.buffer[-1]
         batch_len = tf.constant(len(batch))
-        loss_1 = tf.Variable(0)
+        loss_1 = tf.constant(0., dtype=tf.double)
         ptr = tf.constant(0)
 
         # wrt theta
-        def cond1(ptr):
+        def cond1(ptr, loss):
             return tf.less(ptr, batch_len)
 
-        def body1(ptr):
+        def body1(ptr, loss):
             s, a, a_opp, _, r = batch[ptr]
-            tf.add(ptr, 1)
+            ptr = tf.add(ptr, 1)
             marginal = tf.distributions.Normal(*self.compute_marginal_policy(s))
             opponent = tf.distributions.Normal(*self.get_opponent_model_params(s))
             conditional = tf.distributions.Normal(*self.get_policy_params(s, a_opp))
@@ -108,25 +116,30 @@ class PGAgent:
             second_2 = tf.add(second_2, 1)
             second = tf.multiply(second_1, second_2)
 
-            return tf.add(loss_1, tf.add(first, second))
+            loss = tf.add(loss, tf.add(first, second))
+            return ptr, loss
 
-        loss_1 = tf.divide(tf.while_loop(cond1, body1, [ptr]), batch_len)
+        loss_1_func = partial(
+            tf.divide,
+            tf.while_loop(cond1, body1, [ptr, loss_1])[1],
+            float(batch_len)
+        )
+
         theta_variables = self.policy.get_trainable()
-        gradients = tf.gradients(loss_1, theta_variables)
-
-        theta_variables -= self.alpha * gradients
+        # gradients = tf.gradients(loss_1, theta_variables)
+        tf.train.AdamOptimizer(
+            learning_rate=self.alpha).minimize(loss_1_func, var_list=theta_variables)
 
         # wrt phi
         ptr = tf.constant(0)
-        loss_2 = tf.Variable(0)
-        def cond2(ptr):
+        loss_2 = tf.constant(0., dtype=tf.double)
+        def cond2(ptr, loss):
             return tf.less(ptr, batch_len)
 
-        def body2(ptr):
+        def body2(ptr, loss):
             s, a, a_opp, _, r = batch[ptr]
-            tf.add(ptr, 1)
+            ptr = tf.add(ptr, 1)
             opponent = tf.distributions.Normal(*self.get_opponent_model_params(s))
-            # Ask Zheng => is ths opponent policy(?)
             conditional = tf.distributions.Normal(*self.get_policy_params(s, a_opp))
             first_1 = tf.divide(
                 opponent.prob(a_opp),
@@ -134,22 +147,25 @@ class PGAgent:
             )
             first_1 = tf.multiply(first_1, opponent.prob(a_opp))
             first_2 = tf.add(
-                r, tf.mult(-conditional.prob(a), tf.log(conditional.prob(a)))
+                r, tf.multiply(-conditional.prob(a), tf.log(conditional.prob(a)))
             )
             first = tf.multiply(first_1, first_2)
             second = tf.distributions.kl_divergence(
                 opponent,
                 tf.distributions.Normal(*self.P_s[s])
             )
-            return tf.add(loss_2, tf.subtract(first, second))
+            loss = tf.add(loss, tf.subtract(first, second))
+            return ptr, loss
 
-        loss_2 = tf.divide(tf.while_loop(cond2, body2, [ptr]), batch_len)
+        loss_2_func = partial(
+            tf.divide, 
+            tf.while_loop(cond2, body2, [ptr, loss_2])[1],
+            float(batch_len)
+        )
+        phi_variables = self.opponent_model.get_trainable()
+        tf.train.AdamOptimizer(
+            learning_rate=self.beta).minimize(loss_2_func, var_list=phi_variables)
 
-        loss_2 = tf.divide(tf.while_loop(cond1, body1, [ptr]), batch_len)
-        theta_variables = self.opponent_model.get_trainable()
-        gradients = tf.gradients(loss_2, theta_variables)
-
-        theta_variables -= self.beta * gradients
 
 
         

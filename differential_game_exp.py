@@ -23,16 +23,17 @@ def play_differential_game(alpha=0.001, beta=0.001, discount=0.9, num_agents=2, 
             for agent_id, agent in enumerate(agents):
                 agent.save_history(
                     (
-                        states[agent_id],
+                        states[agent_id][0], # save as scalar
                         actions[agent_id],
                         actions[1 - agent_id],
                         state_primes[agent_id],
                         rewards[agent_id],
                     )
                 )
-    # update P-tsi for each agent.
-    _ = [agent.update_P(MOVING_WINDOW_LEN) for agent in agents]
-            
+        # update P-tsi for each agent.
+        _ = [agent.update_P(MOVING_WINDOW_LEN) for agent in agents]
+        # update the parameters.
+        _ = [agent.update_params() for agent in agents]
 
 if __name__ == "__main__":
     tf.enable_eager_execution()
