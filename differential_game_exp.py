@@ -1,9 +1,9 @@
-from policy_gradient_agent import PGAgent
+from pgagent import PGAgent
 from maci.environments.differential_game import DifferentialGame
 import numpy as np
 import tensorflow as tf
 
-GAME_NAME = "wolf"
+GAME_NAME = "ma_softq"
 AGENT_NUM = 2
 MOVING_WINDOW_LEN = 5 # 5 mini batches => 5 * T, 500 games.
 
@@ -17,18 +17,18 @@ def play_differential_game(alpha=0.001, beta=0.001, discount=0.9, num_agents=2, 
         for _ in range(episodes):
             states = env.reset()
             actions = np.array([
-                agent.act(state[0]) for state, agent in zip(states, agents)
+                agent.act(state) for state, agent in zip(states, agents)
             ])
             state_primes, rewards, _, _ = env.step(actions)
             for agent_id, agent in enumerate(agents):
                 agent.save_history(
-                    (
-                        states[agent_id][0], # save as scalar
+                    [
+                        tf.reshape(states[agent_id], [-1, 1]),
                         actions[agent_id],
                         actions[1 - agent_id],
                         state_primes[agent_id],
                         rewards[agent_id],
-                    )
+                    ]
                 )
         # update P-tsi for each agent.
         _ = [agent.update_P(MOVING_WINDOW_LEN) for agent in agents]

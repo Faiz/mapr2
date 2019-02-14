@@ -51,7 +51,7 @@ class PGAgent:
     def compute_marginal_policy(self, state):
         # print(state)
         opp_model_mu, opp_model_sigma = self.get_opponent_model_params(state)
-        sampled_opp_action = np.random.normal() * opp_model_sigma + opp_model_mu
+        sampled_opp_action = tf.random.normal([1]) * opp_model_sigma + opp_model_mu
         policy_mu, policy_sigma = self.get_policy_params(state, sampled_opp_action)
         # calculate the distribution of product of two dist.
         mu1, mu2, sig1, sig2 = opp_model_mu, policy_mu, opp_model_sigma, policy_sigma
@@ -68,7 +68,7 @@ class PGAgent:
 
     def act(self, state):
         mu, sigma = self.compute_marginal_policy(state)
-        return np.random.normal() * sigma + mu
+        return tf.random.normal([1]) * sigma + mu
 
     def save_history(self, event):
         self.buffer[-1].append(event)
@@ -168,5 +168,4 @@ class PGAgent:
 
 
 
-        
         
