@@ -25,7 +25,7 @@ class PGAgent:
         return tf.convert_to_tensor(arr)
 
     def get_policy_dist(self, state, opp_action):
-        input = tf.reshape([state, opp_action], [-1, 2])
+        input = tf.reshape(tf.stack([state, opp_action], axis=1), [-1, 2])
         flat = self.policy(input)
         self.flat_c = DiagGaussianPd(flat)
         return self.flat_c
@@ -73,8 +73,8 @@ class PGAgent:
         
     def loss_1(self, s, a, a_i, r):
         self.flat_m = self.compute_marginal_policy(s)
-        phi_div_tsi = tf.divide(self.flat_opp.neglogp(a_i), self.P_s.neglogp(a_i))
-        mult_1 = tf.multiply(phi_div_tsi, -self.flat_c.neglogp(a))
+        phi_div_tsi = tf.divide(self.flat_opp.prob(a_i), self.P_s.prob(a_i))
+        mult_1 = tf.multiply(phi_div_tsi, self.flat_c.logp(a))
         first = tf.multiply(mult_1, r)
 
         second_1 = -self.flat_m.neglogp(a)
@@ -86,8 +86,8 @@ class PGAgent:
 
     def loss_2(self, s, a, a_i, r):
         self.flat_m = self.compute_marginal_policy(s)
-        first_1 = tf.divide(self.flat_opp.neglogp(a_i), self.P_s.neglogp(a_i))
-        first_1 = tf.multiply(first_1, -self.flat_opp.neglogp(a_i))
+        first_1 = tf.divide(self.flat_opp.prob(a_i), self.P_s.prob(a_i))
+        first_1 = tf.multiply(first_1, self.flat_opp.logp(a_i))
         first_2 = tf.add(r, -tf.multiply(tf.exp(self.flat_c.logp(a)), self.flat_c.logp(a)))
         first = tf.multiply(first_1, first_2)
         second = self.flat_opp.kl(self.P_s)
@@ -110,7 +110,6 @@ class PGAgent:
         
         tf.train.AdamOptimizer(
             learning_rate=self.alpha).minimize(loss_1_func, var_list=theta_variables)
-
         loss_2_func = partial(
             self.loss_2,
             states, actions, opp_actions, rewards

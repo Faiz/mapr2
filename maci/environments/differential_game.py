@@ -86,7 +86,7 @@ class DifferentialGame(Serializable):
             # print('actions', actions)
             reward_n[i] = self.payoff[i](*tuple(actions))
         self.rewards = reward_n
-        print(reward_n)
+        # print(reward_n)
         state_n = np.array(list([[0. * i] for i in range(self.agent_num)]))
         info = {}
         done_n = np.array([True] * self.agent_num)
