@@ -53,7 +53,9 @@ class PGAgent:
         return self.flat_m
 
     def act(self, state):
-        return self.compute_marginal_policy(state).sample() 
+        action = self.compute_marginal_policy(state).sample()
+        return tf.scalar_mul(10., tf.tanh(action))
+        # return self.compute_marginal_policy(state).sample() 
 
     def save_history(self, event):
         self.buffer[-1].append(event)
@@ -63,13 +65,14 @@ class PGAgent:
 
     def update_P(self, window_length):
         window_length = min(len(self.buffer), window_length)
-        m = defaultdict(list)
+        m = []
+        # since there is only one state
         for mini_batch in self.buffer[-window_length:]:
-            for s, _, a_opp, _, _ in mini_batch:
-                m[s].append(a_opp)
-        for s in m:
-            flat = np.array([np.mean(m[s]), tf.log(np.std(m[s]))])
-            self.P_s = DiagGaussianPd(flat)
+            for _, _, a_opp, _, _ in mini_batch:
+                m.append(a_opp)
+        flat = np.array([np.mean(m), tf.log(np.std(m))])
+        self.P_s = DiagGaussianPd(flat)
+
         
     def loss_1(self, s, a, a_i, r):
         self.flat_m = self.compute_marginal_policy(s)
@@ -77,8 +80,8 @@ class PGAgent:
         mult_1 = tf.multiply(phi_div_tsi, self.flat_c.logp(a))
         first = tf.multiply(mult_1, r)
 
-        second_1 = -self.flat_m.neglogp(a)
-        second_2 = -self.flat_m.neglogp(a)
+        second_1 = self.flat_m.logp(a)
+        second_2 = self.flat_m.logp(a)
         second_2 = tf.stop_gradient(second_2)
         second_2 = tf.add(second_2, 1)
         second = tf.multiply(second_1, second_2)
@@ -96,10 +99,10 @@ class PGAgent:
     def update_params(self):
         batch = np.array(self.buffer[-1])
 
-        states = batch[:, 0]
-        actions = batch[:, 1]
-        opp_actions = batch[:, 2]
-        rewards = batch[:, 4]
+        states = batch[:, 0].reshape(-1, 1)
+        actions = batch[:, 1].reshape(-1, 1)
+        opp_actions = batch[:, 2].reshape(-1, 1)
+        rewards = batch[:, 4].reshape(-1, 1)
 
         theta_variables = self.policy.get_trainable()
 

@@ -48,7 +48,7 @@ class DiagGaussianPd(Pd):
         return tf.exp(-self.neglogp(x))
 
     def neglogp(self, x):
-        return 0.5 * tf.reduce_sum(tf.square((x - self.mean) / self.std), axis=-1) \
+        return 0.5 * tf.reduce_sum(tf.square((x - self.mean) / (self.std + 1e-10)), axis=-1) \
                + 0.5 * np.log(2.0 * np.pi) * tf.cast(tf.to_float(tf.shape(x)[-1]), tf.float64) \
                + tf.reduce_sum(self.logstd, axis=-1)
 
