@@ -7,10 +7,10 @@ from dist import DiagGaussianPd
 
 
 class PGAgent:
-    def __init__(self, id, policy=NN(2, 2), opp_model=NN(1, 2), alpha=0.001, beta=0.001):
+    def __init__(self, id, policy_output_num=2, opponent_model_output_num=2, action_range=10., alpha=0.001, beta=0.001):
         self.id = id
-        self.policy = policy
-        self.opponent_model = opp_model
+        self.policy = NN(policy_output_num)
+        self.opponent_model = NN(opponent_model_output_num)
         self.buffer = []
         self.alpha = alpha
         self.beta = beta
@@ -20,6 +20,7 @@ class PGAgent:
         self.flat_opp = None
 
         self.P_s = None
+        self.action_range = action_range
 
     def _tfarray(self, arr):
         return tf.convert_to_tensor(arr)
@@ -54,8 +55,7 @@ class PGAgent:
 
     def act(self, state):
         action = self.compute_marginal_policy(state).sample()
-        return tf.scalar_mul(10., tf.tanh(action))
-        # return self.compute_marginal_policy(state).sample() 
+        return tf.scalar_mul(self.action_range, tf.tanh(action))
 
     def save_history(self, event):
         self.buffer[-1].append(event)
@@ -110,7 +110,7 @@ class PGAgent:
             self.loss_1,
             states, actions, opp_actions, rewards
         )
-        
+
         tf.train.AdamOptimizer(
             learning_rate=self.alpha).minimize(loss_1_func, var_list=theta_variables)
         loss_2_func = partial(

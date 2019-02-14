@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 class NN:
-    def __init__(self, input, output):
+    def __init__(self, output):
         init = tf.contrib.layers.xavier_initializer
         self.hidden_1 = tf.layers.Dense(units=32, activation=tf.nn.relu, bias_initializer=init())
         self.hidden_2 = tf.layers.Dense(units=32, activation=tf.nn.relu, bias_initializer=init())
