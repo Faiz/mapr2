@@ -112,7 +112,7 @@ class PGAgent:
             learning_rate=self.alpha).minimize(loss_1_func, var_list=theta_variables)
 
         loss_2_func = partial(
-            self.loss_1,
+            self.loss_2,
             states, actions, opp_actions, rewards
         )
         phi_variables = self.opponent_model.get_trainable()
