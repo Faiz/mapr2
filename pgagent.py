@@ -85,7 +85,7 @@ class PGAgent:
         second_2 = tf.stop_gradient(second_2)
         second_2 = tf.add(second_2, 1)
         second = tf.multiply(second_1, second_2)
-        return tf.reduce_mean(tf.add(first, second))
+        return -tf.reduce_mean(tf.add(first, second))
 
     def loss_2(self, s, a, a_i, r):
         self.flat_m = self.compute_marginal_policy(s)
@@ -94,7 +94,7 @@ class PGAgent:
         first_2 = tf.add(r, -tf.multiply(tf.exp(self.flat_c.logp(a)), self.flat_c.logp(a)))
         first = tf.multiply(first_1, first_2)
         second = self.flat_opp.kl(self.P_s)
-        return tf.reduce_mean(tf.subtract(first, second))
+        return -tf.reduce_mean(tf.subtract(first, second))
 
     def update_params(self):
         batch = np.array(self.buffer[-1])

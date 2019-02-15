@@ -19,7 +19,7 @@ def play_differential_game(alpha=0.001, beta=0.001, discount=0.9, num_agents=2, 
             actions = np.array([
                 agent.act(state) for state, agent in zip(states, agents)
             ])
-            print(actions)
+            # print(actions)
             state_primes, rewards, _, _ = env.step(actions)
             for agent_id, agent in enumerate(agents):
                 agent.save_history(
