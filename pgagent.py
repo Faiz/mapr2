@@ -90,7 +90,8 @@ class PGAgent:
     def loss_2(self, s, a, a_i, r):
         self.flat_m = self.compute_marginal_policy(s)
         first_1 = tf.divide(self.flat_opp.prob(a_i), self.P_s.prob(a_i))
-        first_1 = tf.multiply(first_1, self.flat_opp.logp(a_i))
+        predicted_opp_action = self.flat_opp.sample()
+        first_1 = tf.multiply(first_1, self.flat_opp.logp(predicted_opp_action))
         first_2 = tf.add(r, -tf.multiply(tf.exp(self.flat_c.logp(a)), self.flat_c.logp(a)))
         first = tf.multiply(first_1, first_2)
         second = self.flat_opp.kl(self.P_s)
