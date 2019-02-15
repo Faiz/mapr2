@@ -111,7 +111,7 @@ class PGAgent:
 
         first_1 = tf.multiply(phi_div_tsi, tf_ret)
         first_2 = tf.multiply(self.opp_pd.logp(self.predicted_opp_ac), self.con_pd.logp(tf_ac))
-        first = tf.multiply(first_1, first_2)
+        first = tf.add(first_1, first_2)
         second = self.opp_pd.kl(self.P_s)
         loss_2 = -tf.reduce_mean(tf.add(first, second))
         return loss_1, loss_2
