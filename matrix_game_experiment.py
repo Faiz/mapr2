@@ -5,10 +5,12 @@ import matplotlib.pyplot as plt
 
 AGENT_NUM = 2
 ACTION_NUM = 2
-GAME_NAME = "wolf_05_05"
-ITERATION = 1000
+GAME_NAME = "stag_hunt"
+ITERATION = 100
 SAMPLE_SIZE = 1
-K = 10
+K = 1
+opp_style = 'rommeo'
+temperature_decay = True
 
 
 if __name__ == "__main__":
@@ -20,7 +22,7 @@ if __name__ == "__main__":
 
     agents = []
     for i in range(AGENT_NUM):
-        agent = Agent(id, ACTION_NUM, env)
+        agent = Agent(id, ACTION_NUM, env, opp_style=opp_style, temperature_decay=temperature_decay)
         agents.append(agent)
     
     reward_history = []
@@ -50,6 +52,8 @@ if __name__ == "__main__":
     history_pi_0 = [p[1] for p in agents[0].pi_history]
     history_pi_1 = [p[1] for p in agents[1].pi_history]
 
+    print(agents[0].Q[0])
+    print(agents[1].Q[0])
     cmap = plt.get_cmap('viridis')
     colors = range(len(history_pi_1))
     fig = plt.figure(figsize=(6, 10))

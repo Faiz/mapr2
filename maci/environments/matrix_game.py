@@ -112,6 +112,14 @@ class MatrixGame():
                               [1, -1, 0]
                               ]
 
+        elif game == 'stag_hunt':
+            assert self.agent_num == 2
+            assert self.action_num == 2
+            self.payoff[0] = [[2, 0],
+                              [1, 1]]
+            self.payoff[1] = [[2, 1],
+                              [0, 1]]
+
         self.rewards = np.zeros((self.agent_num,))
 
     @staticmethod

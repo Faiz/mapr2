@@ -4,12 +4,16 @@ from functools import partial
 from typing import List
 
 class Agent:
-    def __init__(self, id, action_num, env):
+    def __init__(self, id, action_num, env, tau=1, opp_style='vanilla', temperature_decay=False):
         self.id = id
-        self.alpha_decay_steps = 10000.
+        self.alpha_decay_steps = 25
         self.epoch = 0
+        self.tau = tau
         self.action_num = action_num
         self.env = env
+        self.sliding_wnd_size = 50
+        self.opp_style = opp_style
+        self.temperature_decay = temperature_decay
         # Policy for the agent
         self.pi = defaultdict(
             partial(np.random.dirichlet, [1.0] * self.action_num)
@@ -35,11 +39,12 @@ class Agent:
 
     def update_opponent_action_prob(self, s, a_i, a_neg_i, s_prime, r):
         self.replay_buffer.append((s, a_i, a_neg_i, s_prime, r))
-
+        sliding_wnd_size = min(self.sliding_wnd_size, len(self.replay_buffer))
+        sliding_window = self.replay_buffer[-sliding_wnd_size:]
         a_neg_i_map = Counter()
         # update opponent action probability
         denominator = 0
-        for exp in self.replay_buffer:
+        for exp in sliding_window:
             if exp[0] != s: # state
                 continue
             denominator += 1
@@ -51,29 +56,38 @@ class Agent:
         return self.alpha_decay_steps / (self.alpha_decay_steps + self.epoch)
 
     def compute_conditional_pi(self, s):
-        self.cond_pi[s] = np.exp(self.Q[s])
-        self.cond_pi[s] /= np.sum(np.exp(self.Q[s]), axis=0)
+        self.cond_pi[s] = np.exp(self.Q[s]/self.tau)
+        self.cond_pi[s] /= np.sum(np.exp(self.Q[s]/self.tau), axis=0)
         return self.cond_pi[s]
 
     def compute_opponent_model(self, s):
         self.rho[s] = np.multiply(
             self.pi_neg_i[s],
-            np.sum(np.exp(self.Q[s]), axis=0)
+            np.sum(np.exp(self.Q[s]/self.tau), axis=0)
         )
         self.rho[s] /= self.rho[s].sum()
         return self.rho[s]
 
     def compute_marginal_pi(self, s):
         pi = self.compute_conditional_pi(s)
-        rho = self.compute_opponent_model(s)
+        if self.opp_style == 'independent':
+            rho = np.ones(self.action_num)/np.sum(np.ones(self.action_num))
+        elif self.opp_style == 'vanilla':
+            rho = self.pi_neg_i[s]
+        elif self.opp_style == 'rommeo':
+            rho = self.compute_opponent_model(s)
+        else:
+            raise ValueError('Unrecognized opponent model learning type')
         self.marginal_pi[s] = np.sum(np.multiply(pi, rho), 1)
         return self.marginal_pi[s]
 
-    def update_policy(self, sample_size, k, sliding_wnd_size=1, gamma=0.95, done=True):
-        sliding_wnd_size = min(sliding_wnd_size, len(self.replay_buffer))
+    def update_policy(self, sample_size, k, gamma=0.95, done=True):
+        sliding_wnd_size = min(self.sliding_wnd_size, len(self.replay_buffer))
         sliding_window = self.replay_buffer[-sliding_wnd_size:]
         samples = np.random.choice(len(sliding_window), size=sample_size)
         decay_alpha = self.step_decay()
+        if self.temperature_decay:
+            self.tau = self.step_decay()
         for exp in samples:
             s, a_i, a_neg_i, s_prime, r = sliding_window[exp]
             numerator, denominator = 0, 0
